@@ -157,6 +157,89 @@ TEST_CASE("CLI. Base tests", "[cli]") {
         REQUIRE(displayed.cursorColumn == 7);
     }
 
+    SECTION("Move cursor to start") {
+        cli.send(" both\x1B[Hget");
+        cli.process();
+        auto displayed = cli.getDisplay();
+        REQUIRE(displayed.lines.size() == 1);
+        REQUIRE(displayed.lines[0] == "> get both");
+        REQUIRE(displayed.cursorColumn == 5);
+    }
+
+    SECTION("Move cursor to start with 1~ alternative sequence") {
+        cli.send(" both\x1B[1~get");
+        cli.process();
+        auto displayed = cli.getDisplay();
+        REQUIRE(displayed.lines.size() == 1);
+        REQUIRE(displayed.lines[0] == "> get both");
+        REQUIRE(displayed.cursorColumn == 5);
+    }
+
+    SECTION("Move cursor to start with 7~ alternative sequence") {
+        cli.send(" both\x1B[7~get");
+        cli.process();
+        auto displayed = cli.getDisplay();
+        REQUIRE(displayed.lines.size() == 1);
+        REQUIRE(displayed.lines[0] == "> get both");
+        REQUIRE(displayed.cursorColumn == 5);
+    }
+
+    SECTION("Move cursor to start then end") {
+        cli.send("both\x1B[Hget \x1B[F");
+        cli.process();
+        auto displayed = cli.getDisplay();
+        REQUIRE(displayed.lines.size() == 1);
+        REQUIRE(displayed.lines[0] == "> get both");
+        REQUIRE(displayed.cursorColumn == 10);
+    }
+
+    SECTION("Move cursor to start then end with 4~ alternative sequence") {
+        cli.send("both\x1B[Hget \x1B[4~");
+        cli.process();
+        auto displayed = cli.getDisplay();
+        REQUIRE(displayed.lines.size() == 1);
+        REQUIRE(displayed.lines[0] == "> get both");
+        REQUIRE(displayed.cursorColumn == 10);
+    }
+
+
+    SECTION("Move cursor to start then end with 8~ alternative sequence") {
+        cli.send("both\x1B[Hget \x1B[8~");
+        cli.process();
+        auto displayed = cli.getDisplay();
+        REQUIRE(displayed.lines.size() == 1);
+        REQUIRE(displayed.lines[0] == "> get both");
+        REQUIRE(displayed.cursorColumn == 10);
+    }
+
+    SECTION("Move cursor back and perform Delete") {
+        cli.send("get baoth\x1B[D\x1B[D\x1B[D\x1B\x1B[D\x1B[3~");
+        cli.process();
+        auto displayed = cli.getDisplay();
+        REQUIRE(displayed.lines.size() == 1);
+        REQUIRE(displayed.lines[0] == "> get both");
+        REQUIRE(displayed.cursorColumn == 7);
+    }
+
+    SECTION("Delete at end of section") {
+        cli.sendLine("set example\x1B[3~");
+        cli.process();
+
+        auto lines = cli.getDisplay().lines;
+
+        REQUIRE(lines[0] == "> set example");
+
+    }
+
+    SECTION("Delete at start of line should work") {
+        cli.sendLine("nset\x1B[D\x1B[D\x1B[D\x1B[D\x1B[3~");
+        cli.process();
+
+        auto lines = cli.getDisplay().lines;
+
+        REQUIRE(lines[0] == "> set");
+    }
+
     SECTION("Command that is too long") {
         size_t cmdMax = embeddedCliDefaultConfig()->cmdBufferSize;
         std::string cmdMaxTest = std::string(cmdMax/2, 'x');

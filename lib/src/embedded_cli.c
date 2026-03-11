@@ -760,6 +760,29 @@ static void onEscapedInput(EmbeddedCli *cli, char c) {
             impl->cursorPos++;
             writeToOutput(cli, escSeqCursorLeft);
         }
+
+        // Home
+        if (c == 'H' || (c == '~' && (impl->lastChar == '1' || impl->lastChar == '7'))) {
+            if (impl->cursorPos < impl->cmdSize) {
+                moveCursor(cli, impl->cmdSize - impl->cursorPos, CURSOR_DIRECTION_BACKWARD);
+                impl->cursorPos = impl->cmdSize;
+            }
+        }
+        // End
+        if (c == 'F' || (c == '~' && (impl->lastChar == '4' || impl->lastChar == '8'))) {
+            if (impl->cursorPos > 0) {
+                moveCursor(cli, impl->cursorPos, CURSOR_DIRECTION_FORWARD);
+                impl->cursorPos = 0;
+            }
+        }
+        // Delete
+        if (c == '~' && impl->lastChar == '3' && impl->cursorPos != 0) {
+            size_t insertPos = strlen(impl->cmdBuffer) - impl->cursorPos;
+            memmove(&impl->cmdBuffer[insertPos], &impl->cmdBuffer[insertPos + 1], impl->cursorPos);
+            --impl->cmdSize;
+            --impl->cursorPos;
+            writeToOutput(cli, escSeqDeleteChar);
+        }
     }
 }
 
