@@ -1,4 +1,15 @@
+#ifndef EMBEDDED_CLI_ENABLE_DYNAMIC_ALLOCATION
+#define EMBEDDED_CLI_ENABLE_DYNAMIC_ALLOCATION 0
+#endif
+
+#if ((EMBEDDED_CLI_ENABLE_DYNAMIC_ALLOCATION != 0) && \
+     (EMBEDDED_CLI_ENABLE_DYNAMIC_ALLOCATION != 1))
+#error "EMBEDDED_CLI_ENABLE_DYNAMIC_ALLOCATION must be 0 or 1"
+#endif
+
+#if EMBEDDED_CLI_ENABLE_DYNAMIC_ALLOCATION
 #include <stdlib.h>
+#endif
 #include <string.h>
 #include <stdio.h>
 
@@ -457,12 +468,24 @@ EmbeddedCli *embeddedCliNew(EmbeddedCliConfig *config) {
 
     size_t totalSize = embeddedCliRequiredSize(config);
 
+#if EMBEDDED_CLI_ENABLE_DYNAMIC_ALLOCATION
     bool allocated = false;
+#endif
+
     if (config->cliBuffer == NULL) {
+#if EMBEDDED_CLI_ENABLE_DYNAMIC_ALLOCATION
         config->cliBuffer = (CLI_UINT *) malloc(totalSize); // malloc guarantees alignment.
         if (config->cliBuffer == NULL)
             return NULL;
         allocated = true;
+#else
+        /*
+         * Heap-free builds require the caller to supply cliBuffer and
+         * cliBufferSize. Keeping this decision at compile time ensures that
+         * XC8 sees no reference to malloc() and therefore reserves no heap.
+         */
+        return NULL;
+#endif
     } else if (config->cliBufferSize < totalSize) {
         return NULL;
     }
@@ -493,8 +516,10 @@ EmbeddedCli *embeddedCliNew(EmbeddedCliConfig *config) {
     impl->history.buf = (char *) buf;
     impl->history.bufferSize = config->historyBufferSize;
 
+#if EMBEDDED_CLI_ENABLE_DYNAMIC_ALLOCATION
     if (allocated)
         SET_FLAG(impl->flags, CLI_FLAG_ALLOCATED);
+#endif
 
     if (config->enableAutoComplete)
         SET_FLAG(impl->flags, CLI_FLAG_AUTOCOMPLETE_ENABLED);
@@ -608,11 +633,19 @@ void embeddedCliPrint(EmbeddedCli *cli, const char *string) {
 }
 
 void embeddedCliFree(EmbeddedCli *cli) {
+#if EMBEDDED_CLI_ENABLE_DYNAMIC_ALLOCATION
+    if (cli == NULL)
+        return;
+
     PREPARE_IMPL(cli);
     if (IS_FLAG_SET(impl->flags, CLI_FLAG_ALLOCATED)) {
         // allocation is done in single call to malloc, so need only single free
         free(cli);
     }
+#else
+    /* All storage is owned by the caller in a heap-free build. */
+    UNUSED(cli);
+#endif
 }
 
 void embeddedCliTokenizeArgs(char *args) {
